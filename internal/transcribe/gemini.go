@@ -257,14 +257,19 @@ func (t *GeminiTranscriber) parseTranscriptionResponse(
 		return nil, fmt.Errorf("empty response from Gemini")
 	}
 
+	// use only the first candidate to avoid concatenating multiple JSON arrays
 	var responseText string
 	for _, candidate := range result.Candidates {
-		if candidate.Content != nil {
-			for _, part := range candidate.Content.Parts {
-				if part.Text != "" {
-					responseText += part.Text
-				}
+		if candidate.Content == nil {
+			continue
+		}
+		for _, part := range candidate.Content.Parts {
+			if part.Text != "" {
+				responseText += part.Text
 			}
+		}
+		if responseText != "" {
+			break // stop after first non-empty candidate
 		}
 	}
 
