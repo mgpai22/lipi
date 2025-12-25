@@ -139,6 +139,13 @@ func ChunkAudio(
 	chunkDuration time.Duration,
 	outputDir string,
 ) ([]ChunkInfo, error) {
+	if chunkDuration <= 0 {
+		return nil, fmt.Errorf(
+			"chunk duration must be positive, got %v",
+			chunkDuration,
+		)
+	}
+
 	if _, err := os.Stat(audioPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("audio file not found: %s", audioPath)
 	}

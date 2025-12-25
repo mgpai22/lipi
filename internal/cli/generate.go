@@ -86,6 +86,13 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		)
 	}
 
+	if chunkDuration <= 0 {
+		return fmt.Errorf(
+			"chunk duration must be positive, got %d",
+			chunkDuration,
+		)
+	}
+
 	var format subtitle.Format
 	switch strings.ToLower(formatStr) {
 	case "srt":
