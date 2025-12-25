@@ -1,0 +1,50 @@
+# Binaries
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build artifacts
+*.o
+*.a
+*.test
+bin/
+
+# Logs
+/logs/*
+!logs/.gitkeep
+*.log
+
+# Coverage
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+/tmp/
+*.tmp
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Vendor (if not using)
+# /vendor/
+
+# Go workspace
+go.work
+go.work.sum
