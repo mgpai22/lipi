@@ -16,8 +16,8 @@ type DefaultGenerator struct {
 
 func NewDefaultGenerator() *DefaultGenerator {
 	return &DefaultGenerator{
-		MaxCharsPerLine: 42,        // Standard subtitle line length
-		MaxLinesPerSub:  2,         // Most players support 2 lines
+		MaxCharsPerLine: 42, // Standard subtitle line length
+		MaxLinesPerSub:  2,  // Most players support 2 lines
 		MinDuration:     time.Second,
 		MaxDuration:     7 * time.Second,
 	}
@@ -62,7 +62,10 @@ func (g *DefaultGenerator) Generate(segments []Segment) (*Subtitle, error) {
 	}, nil
 }
 
-func (g *DefaultGenerator) needsSplit(text string, duration time.Duration) bool {
+func (g *DefaultGenerator) needsSplit(
+	text string,
+	duration time.Duration,
+) bool {
 	// if text is too long, split
 	if utf8.RuneCountInString(text) > g.MaxCharsPerLine*g.MaxLinesPerSub {
 		return true

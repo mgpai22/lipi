@@ -30,7 +30,11 @@ type transcriptSegment struct {
 	Text  string  `json:"text"`
 }
 
-func NewGeminiTranscriber(ctx context.Context, apiKey string, opts Options) (*GeminiTranscriber, error) {
+func NewGeminiTranscriber(
+	ctx context.Context,
+	apiKey string,
+	opts Options,
+) (*GeminiTranscriber, error) {
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey: apiKey,
 	})
@@ -51,7 +55,10 @@ func NewGeminiTranscriber(ctx context.Context, apiKey string, opts Options) (*Ge
 }
 
 // transcribes single audio file
-func (t *GeminiTranscriber) Transcribe(ctx context.Context, audioPath string) (*Result, error) {
+func (t *GeminiTranscriber) Transcribe(
+	ctx context.Context,
+	audioPath string,
+) (*Result, error) {
 	if _, err := os.Stat(audioPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("audio file not found: %s", audioPath)
 	}
@@ -95,7 +102,10 @@ func (t *GeminiTranscriber) Transcribe(ctx context.Context, audioPath string) (*
 }
 
 // transcribes a single chunk and adjusts timestamps
-func (t *GeminiTranscriber) TranscribeChunk(ctx context.Context, chunk audio.ChunkInfo) ([]subtitle.Segment, error) {
+func (t *GeminiTranscriber) TranscribeChunk(
+	ctx context.Context,
+	chunk audio.ChunkInfo,
+) ([]subtitle.Segment, error) {
 	result, err := t.Transcribe(ctx, chunk.Path)
 	if err != nil {
 		return nil, err
@@ -122,7 +132,11 @@ type chunkResult struct {
 }
 
 // transcribes multiple chunks in parallel
-func (t *GeminiTranscriber) TranscribeWithChunks(ctx context.Context, chunks []audio.ChunkInfo, concurrency int) (*Result, error) {
+func (t *GeminiTranscriber) TranscribeWithChunks(
+	ctx context.Context,
+	chunks []audio.ChunkInfo,
+	concurrency int,
+) (*Result, error) {
 	if len(chunks) == 0 {
 		return &Result{}, nil
 	}
@@ -161,7 +175,11 @@ func (t *GeminiTranscriber) TranscribeWithChunks(ctx context.Context, chunks []a
 	results := make([]chunkResult, 0, len(chunks))
 	for result := range resultChan {
 		if result.Error != nil {
-			return nil, fmt.Errorf("chunk %d failed: %w", result.Index, result.Error)
+			return nil, fmt.Errorf(
+				"chunk %d failed: %w",
+				result.Index,
+				result.Error,
+			)
 		}
 		results = append(results, result)
 	}
@@ -195,16 +213,28 @@ func (t *GeminiTranscriber) buildTranscriptionPrompt() string {
 	var sb strings.Builder
 
 	sb.WriteString("Generate a detailed transcript of this audio. ")
-	sb.WriteString("For each sentence or phrase, provide the start timestamp, end timestamp, and the exact text spoken. ")
-	sb.WriteString("Format your response as a JSON array with objects containing 'start', 'end', and 'text' fields, ")
-	sb.WriteString("where 'start' and 'end' are timestamps in seconds (as numbers). ")
+	sb.WriteString(
+		"For each sentence or phrase, provide the start timestamp, end timestamp, and the exact text spoken. ",
+	)
+	sb.WriteString(
+		"Format your response as a JSON array with objects containing 'start', 'end', and 'text' fields, ",
+	)
+	sb.WriteString(
+		"where 'start' and 'end' are timestamps in seconds (as numbers). ",
+	)
 
 	if t.options.Language != "" {
 		sb.WriteString(fmt.Sprintf("The audio is in %s. ", t.options.Language))
 	}
 
-	if t.options.TranscriptLanguage != "" && t.options.TranscriptLanguage != "native" {
-		sb.WriteString(fmt.Sprintf("Output the transcript in %s. ", t.options.TranscriptLanguage))
+	if t.options.TranscriptLanguage != "" &&
+		t.options.TranscriptLanguage != "native" {
+		sb.WriteString(
+			fmt.Sprintf(
+				"Output the transcript in %s. ",
+				t.options.TranscriptLanguage,
+			),
+		)
 	}
 
 	if t.options.Prompt != "" {
@@ -212,13 +242,17 @@ func (t *GeminiTranscriber) buildTranscriptionPrompt() string {
 		sb.WriteString(" ")
 	}
 
-	sb.WriteString("Return ONLY the JSON array, no other text or markdown formatting.")
+	sb.WriteString(
+		"Return ONLY the JSON array, no other text or markdown formatting.",
+	)
 
 	return sb.String()
 }
 
 // parses Gemini's response into segments
-func (t *GeminiTranscriber) parseTranscriptionResponse(result *genai.GenerateContentResponse) ([]subtitle.Segment, error) {
+func (t *GeminiTranscriber) parseTranscriptionResponse(
+	result *genai.GenerateContentResponse,
+) ([]subtitle.Segment, error) {
 	if result == nil || len(result.Candidates) == 0 {
 		return nil, fmt.Errorf("empty response from Gemini")
 	}
@@ -241,8 +275,15 @@ func (t *GeminiTranscriber) parseTranscriptionResponse(result *genai.GenerateCon
 	responseText = cleanJSONResponse(responseText)
 
 	var transcriptSegments []transcriptSegment
-	if err := json.Unmarshal([]byte(responseText), &transcriptSegments); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON response: %w (response: %s)", err, truncateString(responseText, 200))
+	if err := json.Unmarshal(
+		[]byte(responseText),
+		&transcriptSegments,
+	); err != nil {
+		return nil, fmt.Errorf(
+			"failed to parse JSON response: %w (response: %s)",
+			err,
+			truncateString(responseText, 200),
+		)
 	}
 
 	// convert to subtitle segments

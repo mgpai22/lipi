@@ -81,7 +81,11 @@ func GetDuration(filePath string) (time.Duration, error) {
 }
 
 // compresses an audio file with the given options
-func CompressAudio(ctx context.Context, inputPath, outputPath string, opts CompressionOptions) error {
+func CompressAudio(
+	ctx context.Context,
+	inputPath, outputPath string,
+	opts CompressionOptions,
+) error {
 	if _, err := os.Stat(inputPath); os.IsNotExist(err) {
 		return fmt.Errorf("input file not found: %s", inputPath)
 	}
@@ -129,7 +133,12 @@ func CompressAudio(ctx context.Context, inputPath, outputPath string, opts Compr
 }
 
 // splits an audio file into chunks of specified duration
-func ChunkAudio(ctx context.Context, audioPath string, chunkDuration time.Duration, outputDir string) ([]ChunkInfo, error) {
+func ChunkAudio(
+	ctx context.Context,
+	audioPath string,
+	chunkDuration time.Duration,
+	outputDir string,
+) ([]ChunkInfo, error) {
 	if _, err := os.Stat(audioPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("audio file not found: %s", audioPath)
 	}
@@ -144,7 +153,10 @@ func ChunkAudio(ctx context.Context, audioPath string, chunkDuration time.Durati
 	}
 
 	var chunks []ChunkInfo
-	baseName := strings.TrimSuffix(filepath.Base(audioPath), filepath.Ext(audioPath))
+	baseName := strings.TrimSuffix(
+		filepath.Base(audioPath),
+		filepath.Ext(audioPath),
+	)
 	ext := filepath.Ext(audioPath)
 
 	chunkSeconds := chunkDuration.Seconds()
@@ -161,7 +173,10 @@ func ChunkAudio(ctx context.Context, audioPath string, chunkDuration time.Durati
 			endSeconds = totalSeconds
 		}
 
-		chunkPath := filepath.Join(outputDir, fmt.Sprintf("%s_chunk_%03d%s", baseName, i, ext))
+		chunkPath := filepath.Join(
+			outputDir,
+			fmt.Sprintf("%s_chunk_%03d%s", baseName, i, ext),
+		)
 
 		kwargs := ffmpeg.KwArgs{
 			"ss": startSeconds,

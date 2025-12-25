@@ -62,7 +62,10 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("file not found: %s", mediaPath)
 	}
 	if !audio.IsMediaFile(mediaPath) {
-		return fmt.Errorf("unsupported file type: %s (expected audio or video file)", filepath.Ext(mediaPath))
+		return fmt.Errorf(
+			"unsupported file type: %s (expected audio or video file)",
+			filepath.Ext(mediaPath),
+		)
 	}
 
 	apiKey, _ := cmd.Flags().GetString("api-key")
@@ -78,7 +81,9 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		apiKey = os.Getenv("GEMINI_API_KEY")
 	}
 	if apiKey == "" {
-		return fmt.Errorf("Gemini API key is required: use --api-key flag or set GEMINI_API_KEY environment variable")
+		return fmt.Errorf(
+			"Gemini API key is required: use --api-key flag or set GEMINI_API_KEY environment variable",
+		)
 	}
 
 	var format subtitle.Format
@@ -90,7 +95,10 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	case "ass":
 		format = subtitle.FormatASS
 	default:
-		return fmt.Errorf("unsupported format %q: use srt, vtt, or ass", formatStr)
+		return fmt.Errorf(
+			"unsupported format %q: use srt, vtt, or ass",
+			formatStr,
+		)
 	}
 
 	if outputPath == "" {
@@ -127,14 +135,24 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 			Bitrate:    compressionOpts.Bitrate,
 		}
 
-		if err := processor.ExtractAudio(ctx, mediaPath, audioPath, extractOpts); err != nil {
+		if err := processor.ExtractAudio(
+			ctx,
+			mediaPath,
+			audioPath,
+			extractOpts,
+		); err != nil {
 			return fmt.Errorf("failed to extract audio: %w", err)
 		}
 	} else {
 		logger.Infow("Compressing audio for transcription")
 		audioPath = filepath.Join(tempDir, "audio.mp3")
 
-		if err := audio.CompressAudio(ctx, mediaPath, audioPath, compressionOpts); err != nil {
+		if err := audio.CompressAudio(
+			ctx,
+			mediaPath,
+			audioPath,
+			compressionOpts,
+		); err != nil {
 			return fmt.Errorf("failed to compress audio: %w", err)
 		}
 	}
@@ -170,7 +188,12 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		Model:              model,
 	}
 
-	transcriber, err := transcribe.Factory(ctx, transcribe.ProviderGemini, apiKey, transcribeOpts)
+	transcriber, err := transcribe.Factory(
+		ctx,
+		transcribe.ProviderGemini,
+		apiKey,
+		transcribeOpts,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create transcriber: %w", err)
 	}
@@ -184,7 +207,11 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		"concurrency", concurrency,
 	)
 
-	result, err := geminiTranscriber.TranscribeWithChunks(ctx, chunks, concurrency)
+	result, err := geminiTranscriber.TranscribeWithChunks(
+		ctx,
+		chunks,
+		concurrency,
+	)
 	if err != nil {
 		return fmt.Errorf("transcription failed: %w", err)
 	}
