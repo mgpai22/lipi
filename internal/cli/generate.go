@@ -92,6 +92,12 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 			chunkDuration,
 		)
 	}
+	if concurrency <= 0 {
+		return fmt.Errorf(
+			"concurrency must be positive, got %d",
+			concurrency,
+		)
+	}
 
 	var format subtitle.Format
 	switch strings.ToLower(formatStr) {
@@ -183,6 +189,18 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	chunks, err := audio.ChunkAudio(ctx, audioPath, chunkDur, chunkDir)
 	if err != nil {
 		return fmt.Errorf("failed to split audio: %w", err)
+	}
+	if len(chunks) == 0 {
+		return fmt.Errorf("failed to split audio: no chunks were created")
+	}
+
+	if concurrency > len(chunks) {
+		logger.Infow("Requested concurrency exceeds number of chunks; capping concurrency",
+			"requested_concurrency", concurrency,
+			"chunk_count", len(chunks),
+			"effective_concurrency", len(chunks),
+		)
+		concurrency = len(chunks)
 	}
 
 	logger.Infow("Created audio chunks",
