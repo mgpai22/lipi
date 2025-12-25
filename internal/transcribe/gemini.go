@@ -322,11 +322,8 @@ func (t *GeminiTranscriber) parseTranscriptionResponse(
 
 	responseText = cleanJSONResponse(responseText)
 
-	var transcriptSegments []transcriptSegment
-	if err := json.Unmarshal(
-		[]byte(responseText),
-		&transcriptSegments,
-	); err != nil {
+	transcriptSegments, err := extractTranscriptSegments(responseText)
+	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to parse JSON response: %w (response: %s)",
 			err,
@@ -359,6 +356,84 @@ func cleanJSONResponse(s string) string {
 	s = strings.TrimSpace(s)
 
 	return s
+}
+
+var transcriptWrapperKeys = []string{
+	"segments",
+	"transcript",
+	"transcription",
+	"results",
+	"data",
+}
+
+// extractTranscriptSegments scans text for the first JSON value that
+// unmarshals into []transcriptSegment, tolerating preambles and trailing text.
+func extractTranscriptSegments(text string) ([]transcriptSegment, error) {
+	for i := 0; i < len(text); i++ {
+		if text[i] != '[' && text[i] != '{' {
+			continue
+		}
+		decoder := json.NewDecoder(strings.NewReader(text[i:]))
+		var raw json.RawMessage
+		if err := decoder.Decode(&raw); err != nil {
+			continue
+		}
+		if segments, ok := tryExtractSegments(raw); ok && len(segments) > 0 {
+			return segments, nil
+		}
+	}
+	return nil, fmt.Errorf("no valid transcript JSON found in response")
+}
+
+func tryExtractSegments(raw json.RawMessage) ([]transcriptSegment, bool) {
+	var segments []transcriptSegment
+	if err := json.Unmarshal(
+		raw,
+		&segments,
+	); err == nil &&
+		validateSegments(segments) {
+		return segments, true
+	}
+
+	var wrapper map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &wrapper); err != nil {
+		return nil, false
+	}
+
+	for _, key := range transcriptWrapperKeys {
+		if fieldRaw, exists := wrapper[key]; exists {
+			var fieldSegments []transcriptSegment
+			if err := json.Unmarshal(
+				fieldRaw,
+				&fieldSegments,
+			); err == nil &&
+				validateSegments(fieldSegments) {
+				return fieldSegments, true
+			}
+		}
+	}
+
+	for _, fieldRaw := range wrapper {
+		var fieldSegments []transcriptSegment
+		if err := json.Unmarshal(
+			fieldRaw,
+			&fieldSegments,
+		); err == nil &&
+			validateSegments(fieldSegments) {
+			return fieldSegments, true
+		}
+	}
+
+	return nil, false
+}
+
+func validateSegments(segments []transcriptSegment) bool {
+	for _, seg := range segments {
+		if seg.Text != "" || seg.Start > 0 || seg.End > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // truncates a string to maxLen characters
