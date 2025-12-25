@@ -69,7 +69,12 @@ func (t *GeminiTranscriber) Transcribe(
 	}
 
 	defer func() {
-		_, _ = t.client.Files.Delete(ctx, uploadedFile.Name, nil)
+		cleanupCtx, cancel := context.WithTimeout(
+			context.Background(),
+			15*time.Second,
+		)
+		defer cancel()
+		_, _ = t.client.Files.Delete(cleanupCtx, uploadedFile.Name, nil)
 	}()
 
 	prompt := t.buildTranscriptionPrompt()
@@ -145,27 +150,58 @@ func (t *GeminiTranscriber) TranscribeWithChunks(
 		concurrency = 3
 	}
 
-	workChan := make(chan audio.ChunkInfo, len(chunks))
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	workChan := make(chan audio.ChunkInfo)
+	// buffer to avoid blocking sends if the consumer returns early.
 	resultChan := make(chan chunkResult, len(chunks))
 
 	var wg sync.WaitGroup
 	for i := 0; i < concurrency; i++ {
 		wg.Go(func() {
-			for chunk := range workChan {
-				segments, err := t.TranscribeChunk(ctx, chunk)
-				resultChan <- chunkResult{
-					Index:    chunk.Index,
-					Segments: segments,
-					Error:    err,
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case chunk, ok := <-workChan:
+					if !ok {
+						return
+					}
+					// if cancellation won the race with receiving work, stop
+					// promptly to avoid starting more uploads/transcriptions
+					if ctx.Err() != nil {
+						return
+					}
+
+					segments, err := t.TranscribeChunk(ctx, chunk)
+					if err != nil {
+						// cancel as soon as a worker hits an error so other
+						// workers stop scheduling further work quickly
+						cancel()
+					}
+					resultChan <- chunkResult{
+						Index:    chunk.Index,
+						Segments: segments,
+						Error:    err,
+					}
 				}
 			}
 		})
 	}
 
-	for _, chunk := range chunks {
-		workChan <- chunk
-	}
-	close(workChan)
+	// feed work in a separate goroutine so we can stop enqueueing promptly once
+	// cancellation is triggered
+	go func() {
+		defer close(workChan)
+		for _, chunk := range chunks {
+			select {
+			case <-ctx.Done():
+				return
+			case workChan <- chunk:
+			}
+		}
+	}()
 
 	go func() {
 		wg.Wait()
@@ -173,15 +209,22 @@ func (t *GeminiTranscriber) TranscribeWithChunks(
 	}()
 
 	results := make([]chunkResult, 0, len(chunks))
+	var firstErr error
 	for result := range resultChan {
-		if result.Error != nil {
-			return nil, fmt.Errorf(
+		if result.Error != nil && firstErr == nil {
+			firstErr = fmt.Errorf(
 				"chunk %d failed: %w",
 				result.Index,
 				result.Error,
 			)
+			cancel()
 		}
-		results = append(results, result)
+		if result.Error == nil {
+			results = append(results, result)
+		}
+	}
+	if firstErr != nil {
+		return nil, firstErr
 	}
 
 	// sort by index to maintain order
