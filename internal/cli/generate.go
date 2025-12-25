@@ -73,6 +73,12 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	formatStr, _ := cmd.Flags().GetString("format")
 	concurrency, _ := cmd.Flags().GetInt("concurrency")
 	model, _ := cmd.Flags().GetString("model")
+	if !isValidGeminiModel(model) {
+		return fmt.Errorf(
+			"unsupported model %q: valid models are gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-native-audio-latest, gemini-2.5-flash-lite",
+			model,
+		)
+	}
 	outputPath, _ := cmd.Flags().GetString("output")
 	language, _ := cmd.Flags().GetString("language")
 	transcriptLang, _ := cmd.Flags().GetString("transcript-language")
@@ -273,4 +279,16 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Duration: %s\n", duration.String())
 
 	return nil
+}
+
+var validGeminiModels = map[string]bool{
+	"gemini-3-pro-preview":   true,
+	"gemini-3-flash-preview": true,
+	"gemini-2.5-pro":         true,
+	"gemini-2.5-flash":       true,
+	"gemini-2.5-flash-lite":  true,
+}
+
+func isValidGeminiModel(model string) bool {
+	return validGeminiModels[model]
 }
