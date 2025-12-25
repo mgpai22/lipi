@@ -195,10 +195,14 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	if concurrency > len(chunks) {
-		logger.Infow("Requested concurrency exceeds number of chunks; capping concurrency",
-			"requested_concurrency", concurrency,
-			"chunk_count", len(chunks),
-			"effective_concurrency", len(chunks),
+		logger.Infow(
+			"Requested concurrency exceeds number of chunks; capping concurrency",
+			"requested_concurrency",
+			concurrency,
+			"chunk_count",
+			len(chunks),
+			"effective_concurrency",
+			len(chunks),
 		)
 		concurrency = len(chunks)
 	}
