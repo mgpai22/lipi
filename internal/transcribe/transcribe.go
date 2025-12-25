@@ -2,6 +2,7 @@ package transcribe
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/mgpai22/lipi/internal/subtitle"
@@ -30,23 +31,27 @@ const (
 
 // transcription options
 type Options struct {
-	Language string
-	Model    string
-	Prompt   string
+	Language           string // Source language of audio
+	TranscriptLanguage string // Output language for transcript (default: "native")
+	Model              string
+	Prompt             string
 }
 
 // creates transcriber based on provider
 func Factory(
+	ctx context.Context,
 	provider Provider,
 	apiKey string,
 	opts Options,
 ) (Transcriber, error) {
-	// TODO: Implement provider factory
-	// switch provider {
-	// case ProviderWhisper:
-	//     return NewWhisperTranscriber(opts)
-	// case ProviderOpenAI:
-	//     return NewOpenAITranscriber(apiKey, opts)
-	// }
-	return nil, nil
+	switch provider {
+	case ProviderGemini:
+		return NewGeminiTranscriber(ctx, apiKey, opts)
+	case ProviderWhisper:
+		return nil, fmt.Errorf("whisper provider not yet implemented")
+	case ProviderOpenAI:
+		return nil, fmt.Errorf("openai provider not yet implemented")
+	default:
+		return nil, fmt.Errorf("unsupported provider: %s", provider)
+	}
 }
