@@ -108,6 +108,12 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 				model,
 			)
 		}
+		if !isValidOpenAITranscriptLanguage(transcriptLang) {
+			return fmt.Errorf(
+				"unsupported transcript language %q for OpenAI provider: OpenAI Whisper only supports translation to English; use --transcript-language english (or 'en') to translate, or 'native' to keep the original language",
+				transcriptLang,
+			)
+		}
 	default:
 		return fmt.Errorf(
 			"unsupported provider %q: use gemini or openai",
@@ -376,4 +382,18 @@ var validAnthropicModels = map[string]bool{
 
 func isValidAnthropicModel(model string) bool {
 	return validAnthropicModels[model]
+}
+
+// isValidOpenAITranscriptLanguage checks if the transcript language is supported
+// by OpenAI Whisper. Whisper only supports translation TO English, so valid values
+// are: "native" (or empty) for original language transcription, or "english"/"en"
+// for translation to English.
+func isValidOpenAITranscriptLanguage(lang string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(lang))
+	switch normalized {
+	case "", "native", "english", "en":
+		return true
+	default:
+		return false
+	}
 }
