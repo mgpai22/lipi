@@ -109,6 +109,9 @@ func (t *OpenAITranscriber) transcribeWithTranslation(
 	if err != nil {
 		return nil, fmt.Errorf("translation failed: %w", err)
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("translation returned empty response")
+	}
 
 	segments, err := t.parseVerboseJSONResponse(resp.RawJSON(), duration)
 	if err != nil {
@@ -149,6 +152,9 @@ func (t *OpenAITranscriber) transcribeWithTimestamps(
 	resp, err := t.client.Audio.Transcriptions.New(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("transcription failed: %w", err)
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("transcription returned empty response")
 	}
 
 	segments, err := t.parseVerboseJSONResponse(resp.RawJSON(), duration)
