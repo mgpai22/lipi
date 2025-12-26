@@ -202,7 +202,7 @@ func TestBuildPrompt(t *testing.T) {
 		{Index: 1, Text: "Goodbye"},
 	}
 
-	prompt := translator.buildPrompt(items)
+	prompt := BuildPrompt(translator.options, items)
 
 	if !contains(prompt, "English subtitle texts") {
 		t.Error("prompt should contain input language")
@@ -229,7 +229,7 @@ func TestBuildPromptWithoutInputLanguage(t *testing.T) {
 		{Index: 0, Text: "Hello"},
 	}
 
-	prompt := translator.buildPrompt(items)
+	prompt := BuildPrompt(translator.options, items)
 
 	if contains(prompt, "English") || contains(prompt, "from ") {
 		t.Error("prompt should not contain input language when not specified")
