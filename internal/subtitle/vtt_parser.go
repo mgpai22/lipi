@@ -19,7 +19,9 @@ func parseVTTFile(path string) (*VTTFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open VTT file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	var entries []Entry
 	scanner := bufio.NewScanner(file)
