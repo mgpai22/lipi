@@ -44,11 +44,10 @@ The release binaries include bundled FFmpeg, so no additional dependencies are r
 **Prerequisites:**
 
 - Go 1.25 or later
-- FFmpeg (for audio/video processing)
 
-When building from source, Lipi will automatically download a prebuilt FFmpeg/FFprobe
-bundle on first run if it cannot find FFmpeg on your system. Set `LIPI_FFMPEG_PATH` and
-`LIPI_FFPROBE_PATH` to point to custom binaries.
+When building from source without the `ffmpeg_embedded` tag, Lipi will automatically
+download a prebuilt FFmpeg/FFprobe bundle on first run if it cannot find FFmpeg on
+your system. Set `LIPI_FFMPEG_PATH` and `LIPI_FFPROBE_PATH` to point to custom binaries.
 
 ```bash
 git clone https://github.com/shishir/lipi.git
