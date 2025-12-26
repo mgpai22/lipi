@@ -13,16 +13,42 @@ AI-powered CLI tool for generating and translating subtitles from video and audi
 
 ## Installation
 
-### Prerequisites
+### Quick Install
+
+**Linux/macOS (Bash):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mgpai22/lipi/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/mgpai22/lipi/main/install.ps1 | iex
+```
+
+**Options:**
+
+```bash
+# Install specific version
+curl -fsSL https://raw.githubusercontent.com/mgpai22/lipi/main/install.sh | bash -s -- --tag v0.1.0
+
+# Install to current directory
+curl -fsSL https://raw.githubusercontent.com/mgpai22/lipi/main/install.sh | bash -s -- --local
+```
+
+The release binaries include bundled FFmpeg, so no additional dependencies are required.
+
+### Build from Source
+
+**Prerequisites:**
 
 - Go 1.25 or later
 - FFmpeg (for audio/video processing)
 
-Lipi will automatically download a prebuilt FFmpeg/FFprobe bundle on first run
-if it cannot find FFmpeg on your system. Set `LIPI_FFMPEG_PATH` and
+When building from source, Lipi will automatically download a prebuilt FFmpeg/FFprobe
+bundle on first run if it cannot find FFmpeg on your system. Set `LIPI_FFMPEG_PATH` and
 `LIPI_FFPROBE_PATH` to point to custom binaries.
-
-### Build from Source
 
 ```bash
 git clone https://github.com/shishir/lipi.git
