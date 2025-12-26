@@ -120,7 +120,9 @@ func ensure() (BinaryPaths, error) {
 	}
 	if embeddedUsed {
 		if !binariesExist(ffmpegPath, ffprobePath) {
-			return BinaryPaths{}, errors.New("embedded ffmpeg binaries missing after extraction")
+			return BinaryPaths{}, errors.New(
+				"embedded ffmpeg binaries missing after extraction",
+			)
 		}
 		if runtime.GOOS != "windows" {
 			if err := os.Chmod(ffmpegPath, 0o755); err != nil {
@@ -140,7 +142,9 @@ func ensure() (BinaryPaths, error) {
 	}
 
 	if !binariesExist(ffmpegPath, ffprobePath) {
-		return BinaryPaths{}, errors.New("ffmpeg binaries not found after extraction")
+		return BinaryPaths{}, errors.New(
+			"ffmpeg binaries not found after extraction",
+		)
 	}
 
 	if runtime.GOOS != "windows" {
@@ -167,7 +171,11 @@ func assetsForPlatform(goos, goarch string) ([]string, error) {
 	case goos == "windows" && goarch == "amd64":
 		suffix = "win-64"
 	default:
-		return nil, fmt.Errorf("unsupported platform for bundled ffmpeg: %s/%s", goos, goarch)
+		return nil, fmt.Errorf(
+			"unsupported platform for bundled ffmpeg: %s/%s",
+			goos,
+			goarch,
+		)
 	}
 	return []string{
 		"ffmpeg-" + ffmpegReleaseVersion + "-" + suffix + ".zip",
@@ -176,7 +184,12 @@ func assetsForPlatform(goos, goarch string) ([]string, error) {
 }
 
 func downloadAndExtract(assetName, installDir string) error {
-	url := fmt.Sprintf("%s/v%s/%s", ffmpegReleaseBaseURL, ffmpegReleaseVersion, assetName)
+	url := fmt.Sprintf(
+		"%s/v%s/%s",
+		ffmpegReleaseBaseURL,
+		ffmpegReleaseVersion,
+		assetName,
+	)
 	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Get(url)
 	if err != nil {
@@ -188,7 +201,10 @@ func downloadAndExtract(assetName, installDir string) error {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download ffmpeg bundle: unexpected status %s", resp.Status)
+		return fmt.Errorf(
+			"download ffmpeg bundle: unexpected status %s",
+			resp.Status,
+		)
 	}
 
 	return extractArchiveFromReader(assetName, resp.Body, installDir)
@@ -201,13 +217,21 @@ func extractEmbedded(assetName, installDir string) (bool, error) {
 	}
 	defer func() { _ = reader.Close() }()
 
-	if err := extractArchiveFromReader(assetName, reader, installDir); err != nil {
+	if err := extractArchiveFromReader(
+		assetName,
+		reader,
+		installDir,
+	); err != nil {
 		return true, err
 	}
 	return true, nil
 }
 
-func extractArchiveFromReader(assetName string, reader io.Reader, installDir string) error {
+func extractArchiveFromReader(
+	assetName string,
+	reader io.Reader,
+	installDir string,
+) error {
 	tmpFile, err := os.CreateTemp("", "lipi-ffmpeg-*.zip")
 	if err != nil {
 		return fmt.Errorf("create temp archive: %w", err)
