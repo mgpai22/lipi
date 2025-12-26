@@ -25,11 +25,22 @@ type Translator interface {
 	) ([]TranslationResult, error)
 }
 
+// optional interface for translators that support concurrent batch processing
+type ConcurrentTranslator interface {
+	Translator
+	TranslateWithConcurrency(
+		ctx context.Context,
+		items []TranslationItem,
+		concurrency int,
+	) ([]TranslationResult, error)
+}
+
 // translation service provider
 type Provider string
 
 const (
 	ProviderGemini Provider = "gemini"
+	ProviderOpenAI Provider = "openai"
 )
 
 type Options struct {
@@ -54,6 +65,8 @@ func Factory(
 	switch provider {
 	case ProviderGemini:
 		return NewGeminiTranslator(ctx, apiKey, opts)
+	case ProviderOpenAI:
+		return NewOpenAITranslator(ctx, apiKey, opts)
 	default:
 		return nil, fmt.Errorf("unsupported translation provider: %s", provider)
 	}
