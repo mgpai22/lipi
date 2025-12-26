@@ -17,7 +17,8 @@ AI-powered CLI tool for generating and translating subtitles from video and audi
 
 ## Demo
 
-<video src="https://github.com/mgpai22/lipi/raw/main/.github/assets/lipi_demo_two_x.mp4" width="100%" controls></video>
+https://github.com/user-attachments/assets/52dd733d-fb08-4a96-8a08-f4cb1643c345
+
 
 ## Installation
 
