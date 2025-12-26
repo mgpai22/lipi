@@ -292,3 +292,21 @@ var validGeminiModels = map[string]bool{
 func isValidGeminiModel(model string) bool {
 	return validGeminiModels[model]
 }
+
+var validOpenAIModels = map[string]bool{
+	"o1":          true,
+	"o3-mini":     true,
+	"o1-pro":      true,
+	"o3":          true,
+	"gpt-5":       true,
+	"gpt-5-nano":  true,
+	"gpt-5-mini":  true,
+	"gpt-5-pro":   true,
+	"gpt-5.1":     true,
+	"gpt-5.2":     true,
+	"gpt-5.2-pro": true,
+}
+
+func isValidOpenAIModel(model string) bool {
+	return validOpenAIModels[model]
+}
