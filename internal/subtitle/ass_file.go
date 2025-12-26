@@ -27,7 +27,6 @@ type ASSFile struct {
 	textColumnIndex       int
 	dialogues             []ASSDialogue
 	nonDialogueEventLines []string
-	inEventsSection       bool
 }
 
 func parseASSFile(path string) (*ASSFile, error) {
@@ -35,7 +34,9 @@ func parseASSFile(path string) (*ASSFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open ASS file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	assFile := &ASSFile{
 		preEventsLines:        make([]string, 0),
@@ -337,7 +338,9 @@ func (f *ASSFile) Write(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create ASS file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	writer := bufio.NewWriter(file)
 
