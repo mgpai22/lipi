@@ -1,5 +1,9 @@
 # Lipi
 
+<p align="center">
+  <img src=".github/assets/mascot.png" alt="Lipi Mascot" width="200">
+</p>
+
 AI-powered CLI tool for generating and translating subtitles from video and audio files.
 
 ## Features
