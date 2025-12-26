@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Create Release
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "Release ${{ github.ref_name }}" \
+            --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: create_release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-amd64
+            os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            asset_name: lipi-linux-amd64
+            binary_name: lipi
+
+          - platform: linux-arm64
+            os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            asset_name: lipi-linux-arm64
+            binary_name: lipi
+
+          - platform: darwin-amd64
+            os: macos-latest
+            goos: darwin
+            goarch: amd64
+            asset_name: lipi-darwin-amd64
+            binary_name: lipi
+
+          - platform: windows-amd64
+            os: windows-latest
+            goos: windows
+            goarch: amd64
+            asset_name: lipi-windows-amd64
+            binary_name: lipi.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version: 1.25.x
+
+      - name: Fetch ffmpeg assets
+        shell: bash
+        run: ./scripts/fetch-ffmpeg-assets.sh
+
+      - name: Build fat binary
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          VERSION="${{ github.ref_name }}"
+          COMMIT="$(git rev-parse --short HEAD)"
+          BUILD_DATE="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          MODULE="$(grep ^module go.mod | awk '{ print $2 }')"
+
+          go build \
+            -tags ffmpeg_embedded \
+            -ldflags "-s -w -X '${MODULE}/internal/cli.Version=${VERSION}' -X '${MODULE}/internal/cli.Commit=${COMMIT}' -X '${MODULE}/internal/cli.BuildDate=${BUILD_DATE}'" \
+            -o ${{ matrix.binary_name }} \
+            ./cmd/lipi
+
+      - name: Create archive (Windows)
+        if: matrix.goos == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path ${{ matrix.binary_name }} -DestinationPath ${{ matrix.asset_name }}.zip
+
+      - name: Create archive (Unix)
+        if: matrix.goos != 'windows'
+        run: |
+          chmod +x ${{ matrix.binary_name }}
+          tar -czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.binary_name }}
+
+      - name: Upload release asset (Windows)
+        if: matrix.goos == 'windows'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" ./${{ matrix.asset_name }}.zip
+
+      - name: Upload release asset (Unix)
+        if: matrix.goos != 'windows'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" ./${{ matrix.asset_name }}.tar.gz
+
+      - name: Generate checksum (Windows)
+        if: matrix.goos == 'windows'
+        shell: bash
+        run: |
+          sha256sum ${{ matrix.asset_name }}.zip > ${{ matrix.asset_name }}.zip.sha256
+          gh release upload "${{ github.ref_name }}" ./${{ matrix.asset_name }}.zip.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate checksum (Unix)
+        if: matrix.goos != 'windows'
+        run: |
+          sha256sum ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
+          gh release upload "${{ github.ref_name }}" ./${{ matrix.asset_name }}.tar.gz.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
