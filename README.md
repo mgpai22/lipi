@@ -15,6 +15,10 @@ AI-powered CLI tool for generating and translating subtitles from video and audi
 - **Parallel Processing** - Concurrent chunk transcription and batch translation for performance
 - **Bilingual Mode** - Create overlay subtitles with both translated and original text
 
+## Demo
+
+<video src="https://github.com/mgpai22/lipi/raw/main/.github/assets/lipi_demo_two_x.mp4" width="100%" controls></video>
+
 ## Installation
 
 ### Quick Install
