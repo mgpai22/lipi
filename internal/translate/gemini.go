@@ -219,7 +219,7 @@ func (t *GeminiTranslator) translateBatch(
 	ctx context.Context,
 	items []TranslationItem,
 ) ([]TranslationResult, error) {
-	prompt := t.buildPrompt(items)
+	prompt := BuildPrompt(t.options, items)
 
 	parts := []*genai.Part{
 		genai.NewPartFromText(prompt),
@@ -234,53 +234,6 @@ func (t *GeminiTranslator) translateBatch(
 	}
 
 	return t.parseResponse(result, len(items))
-}
-
-func (t *GeminiTranslator) buildPrompt(items []TranslationItem) string {
-	var sb strings.Builder
-
-	if t.options.InputLanguage != "" {
-		sb.WriteString(fmt.Sprintf(
-			"Translate the following %s subtitle texts to %s.\n\n",
-			t.options.InputLanguage,
-			t.options.TargetLanguage,
-		))
-	} else {
-		sb.WriteString(fmt.Sprintf(
-			"Translate the following subtitle texts to %s.\n\n",
-			t.options.TargetLanguage,
-		))
-	}
-
-	sb.WriteString("IMPORTANT INSTRUCTIONS:\n")
-	sb.WriteString(
-		"1. Translate ONLY the text content, preserving the meaning.\n",
-	)
-	sb.WriteString(
-		"2. Keep any formatting tags (like {\\pos}, {\\an}, etc.) unchanged.\n",
-	)
-	sb.WriteString("3. Preserve line breaks (\\N) in the same positions.\n")
-	sb.WriteString("4. Return ONLY a JSON array with the same structure.\n")
-	sb.WriteString("5. Each object must have 'index' and 'text' fields.\n")
-	sb.WriteString(
-		"6. The 'index' values must match the input indices exactly.\n",
-	)
-	sb.WriteString("7. Do not add any explanation or markdown formatting.\n\n")
-
-	if t.options.Prompt != "" {
-		sb.WriteString(
-			fmt.Sprintf("Additional instructions: %s\n\n", t.options.Prompt),
-		)
-	}
-
-	sb.WriteString("Input JSON:\n")
-
-	inputJSON, _ := json.MarshalIndent(items, "", "  ")
-	sb.Write(inputJSON)
-
-	sb.WriteString("\n\nOutput the translated JSON array only:")
-
-	return sb.String()
 }
 
 func (t *GeminiTranslator) parseResponse(

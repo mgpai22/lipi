@@ -2,7 +2,9 @@ package translate
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // single text item to translate
@@ -73,4 +75,52 @@ func Factory(
 	default:
 		return nil, fmt.Errorf("unsupported translation provider: %s", provider)
 	}
+}
+
+// BuildPrompt creates the translation prompt for LLM providers
+func BuildPrompt(opts Options, items []TranslationItem) string {
+	var sb strings.Builder
+
+	if opts.InputLanguage != "" {
+		sb.WriteString(fmt.Sprintf(
+			"Translate the following %s subtitle texts to %s.\n\n",
+			opts.InputLanguage,
+			opts.TargetLanguage,
+		))
+	} else {
+		sb.WriteString(fmt.Sprintf(
+			"Translate the following subtitle texts to %s.\n\n",
+			opts.TargetLanguage,
+		))
+	}
+
+	sb.WriteString("IMPORTANT INSTRUCTIONS:\n")
+	sb.WriteString(
+		"1. Translate ONLY the text content, preserving the meaning.\n",
+	)
+	sb.WriteString(
+		"2. Keep any formatting tags (like {\\pos}, {\\an}, etc.) unchanged.\n",
+	)
+	sb.WriteString("3. Preserve line breaks (\\N) in the same positions.\n")
+	sb.WriteString("4. Return ONLY a JSON array with the same structure.\n")
+	sb.WriteString("5. Each object must have 'index' and 'text' fields.\n")
+	sb.WriteString(
+		"6. The 'index' values must match the input indices exactly.\n",
+	)
+	sb.WriteString("7. Do not add any explanation or markdown formatting.\n\n")
+
+	if opts.Prompt != "" {
+		sb.WriteString(
+			fmt.Sprintf("Additional instructions: %s\n\n", opts.Prompt),
+		)
+	}
+
+	sb.WriteString("Input JSON:\n")
+
+	inputJSON, _ := json.MarshalIndent(items, "", "  ")
+	sb.Write(inputJSON)
+
+	sb.WriteString("\n\nOutput the translated JSON array only:")
+
+	return sb.String()
 }
