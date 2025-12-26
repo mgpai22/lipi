@@ -169,6 +169,9 @@ func downloadAndExtract(assetName, installDir string) error {
 	if err != nil {
 		return fmt.Errorf("download ffmpeg bundle: %w", err)
 	}
+	if resp == nil {
+		return errors.New("download ffmpeg bundle: nil response")
+	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
