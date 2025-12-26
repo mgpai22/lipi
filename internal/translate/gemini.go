@@ -297,7 +297,41 @@ func cleanJSONResponse(s string) string {
 	return s
 }
 
+// fixes invalid JSON escape sequences like \N (SRT newline).
+// It replaces \N with \\N so JSON can parse it, preserving the literal \N in the output.
+func fixInvalidEscapes(s string) string {
+	var result strings.Builder
+	result.Grow(len(s))
+
+	i := 0
+	for i < len(s) {
+		if i < len(s)-1 && s[i] == '\\' {
+			next := s[i+1]
+			// Valid JSON escape sequences: ", \, /, b, f, n, r, t, u
+			switch next {
+			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u':
+				// Valid escape, keep as-is
+				result.WriteByte(s[i])
+				result.WriteByte(s[i+1])
+				i += 2
+			default:
+				// Invalid escape like \N - escape the backslash
+				result.WriteString("\\\\")
+				result.WriteByte(next)
+				i += 2
+			}
+		} else {
+			result.WriteByte(s[i])
+			i++
+		}
+	}
+
+	return result.String()
+}
+
 func extractTranslationResults(text string) ([]TranslationResult, error) {
+	text = fixInvalidEscapes(text)
+
 	for i := 0; i < len(text); i++ {
 		if text[i] != '[' && text[i] != '{' {
 			continue

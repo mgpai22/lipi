@@ -94,6 +94,13 @@ func TestExtractTranslationResults(t *testing.T) {
 			Let me know if you need anything else!`,
 			wantCount: 2,
 		},
+		{
+			name: "SRT newline escape in text",
+			input: `[
+				{"index": 0, "text": "That's why they are fuming...\Nthese Babu and Pappu."}
+			]`,
+			wantCount: 1,
+		},
 	}
 
 	for _, tt := range tests {
