@@ -18,6 +18,10 @@ AI-powered CLI tool for generating and translating subtitles from video and audi
 - Go 1.25 or later
 - FFmpeg (for audio/video processing)
 
+Lipi will automatically download a prebuilt FFmpeg/FFprobe bundle on first run
+if it cannot find FFmpeg on your system. Set `LIPI_FFMPEG_PATH` and
+`LIPI_FFPROBE_PATH` to point to custom binaries.
+
 ### Build from Source
 
 ```bash
@@ -27,6 +31,18 @@ make build
 ```
 
 The binary will be available at `./bin/lipi`.
+
+### Build a Fat Binary (Bundled FFmpeg)
+
+To bundle FFmpeg/FFprobe directly into the Lipi binary, run:
+
+```bash
+make build-bundled
+```
+
+This downloads prebuilt assets into `internal/ffmpeg/assets` (ignored by git)
+and embeds them in the resulting binary. The bundled binary will be available
+at `./bin/lipi`.
 
 ## Quick Start
 

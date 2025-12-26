@@ -8,6 +8,8 @@ import (
 	"time"
 
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+
+	ffmpegbin "github.com/mgpai22/lipi/internal/ffmpeg"
 )
 
 // video file information
@@ -112,9 +114,15 @@ func (p *DefaultProcessor) ExtractAudio(
 		kwargs["acodec"] = "pcm_s16le"
 	}
 
-	err := ffmpeg.Input(videoPath).
+	ffmpegPath, err := ffmpegbin.FFmpegPath()
+	if err != nil {
+		return err
+	}
+
+	err = ffmpeg.Input(videoPath).
 		Output(outputPath, kwargs).
 		OverWriteOutput().
+		SetFfmpegPath(ffmpegPath).
 		Run()
 
 	if err != nil {
