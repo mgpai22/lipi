@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mgpai22/lipi/internal/audio"
 	"github.com/mgpai22/lipi/internal/subtitle"
 )
 
@@ -18,6 +19,15 @@ type Result struct {
 // interface for audio transcription
 type Transcriber interface {
 	Transcribe(ctx context.Context, audioPath string) (*Result, error)
+}
+
+type ConcurrentTranscriber interface {
+	Transcriber
+	TranscribeWithChunks(
+		ctx context.Context,
+		chunks []audio.ChunkInfo,
+		concurrency int,
+	) (*Result, error)
 }
 
 // transcription service provider
@@ -50,7 +60,7 @@ func Factory(
 	case ProviderWhisper:
 		return nil, fmt.Errorf("whisper provider not yet implemented")
 	case ProviderOpenAI:
-		return nil, fmt.Errorf("openai provider not yet implemented")
+		return NewOpenAITranscriber(ctx, apiKey, opts)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}

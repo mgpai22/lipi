@@ -23,12 +23,14 @@ var generateCmd = &cobra.Command{
 The command accepts both audio files (mp3, wav, aac, etc.) and video files (mp4, mkv, etc.).
 For video files, audio is automatically extracted before transcription.
 
-The audio is split into chunks (default 1 minute) and transcribed in parallel using Google Gemini.
+The audio is split into chunks (default 1 minute) and transcribed in parallel.
+Supports multiple providers: Gemini (default) and OpenAI.
 Generated subtitles can be output in SRT, VTT, or ASS format.
 
 Examples:
   lipi generate video.mp4
   lipi generate audio.mp3 --format vtt
+  lipi generate video.mp4 --provider openai --model whisper-1
   lipi generate video.mp4 --api-key YOUR_KEY --chunk-duration 2
   lipi generate podcast.mp3 -f srt -d 1 --concurrency 5`,
 	Args: cobra.ExactArgs(1),
@@ -41,7 +43,7 @@ func init() {
 	generateCmd.Flags().
 		Bool("embed", false, "Embed subtitles directly into the video (not yet implemented)")
 	generateCmd.Flags().
-		StringP("api-key", "k", "", "Gemini API key (or set GEMINI_API_KEY env var)")
+		StringP("api-key", "k", "", "API key (or set GEMINI_API_KEY/OPENAI_API_KEY env var)")
 	generateCmd.Flags().
 		IntP("chunk-duration", "d", 1, "Chunk duration in minutes for splitting audio")
 	generateCmd.Flags().
@@ -49,9 +51,11 @@ func init() {
 	generateCmd.Flags().
 		Int("concurrency", 3, "Number of parallel transcription workers")
 	generateCmd.Flags().
-		String("model", "gemini-2.5-flash", "Gemini model to use for transcription")
+		String("model", "", "Model to use for transcription (provider-specific, uses sensible defaults)")
 	generateCmd.Flags().
 		String("transcript-language", "native", "Output language for transcript (e.g., 'english', 'spanish', or 'native' for original language)")
+	generateCmd.Flags().
+		String("provider", "gemini", "Transcription provider (gemini, openai)")
 }
 
 func runGenerate(cmd *cobra.Command, args []string) error {
@@ -73,22 +77,71 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	formatStr, _ := cmd.Flags().GetString("format")
 	concurrency, _ := cmd.Flags().GetInt("concurrency")
 	model, _ := cmd.Flags().GetString("model")
-	if !isValidGeminiModel(model) {
-		return fmt.Errorf(
-			"unsupported model %q: valid models are gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-native-audio-latest, gemini-2.5-flash-lite",
-			model,
-		)
-	}
 	outputPath, _ := cmd.Flags().GetString("output")
 	language, _ := cmd.Flags().GetString("language")
 	transcriptLang, _ := cmd.Flags().GetString("transcript-language")
+	providerStr, _ := cmd.Flags().GetString("provider")
+
+	provider := transcribe.Provider(providerStr)
+
+	if model == "" {
+		switch provider {
+		case transcribe.ProviderGemini:
+			model = "gemini-2.5-flash"
+		case transcribe.ProviderOpenAI:
+			model = "whisper-1"
+		}
+	}
+
+	switch provider {
+	case transcribe.ProviderGemini:
+		if !isValidGeminiModel(model) {
+			return fmt.Errorf(
+				"unsupported Gemini model %q: valid models are gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite",
+				model,
+			)
+		}
+	case transcribe.ProviderOpenAI:
+		if !isValidOpenAIAudioModel(model) {
+			return fmt.Errorf(
+				"unsupported OpenAI audio model %q: only whisper-1 is supported",
+				model,
+			)
+		}
+		if !isValidOpenAITranscriptLanguage(transcriptLang) {
+			return fmt.Errorf(
+				"unsupported transcript language %q for OpenAI provider: OpenAI Whisper only supports translation to English; use --transcript-language english (or 'en') to translate, or 'native' to keep the original language",
+				transcriptLang,
+			)
+		}
+	default:
+		return fmt.Errorf(
+			"unsupported provider %q: use gemini or openai",
+			providerStr,
+		)
+	}
 
 	if apiKey == "" {
-		apiKey = os.Getenv("GEMINI_API_KEY")
+		switch provider {
+		case transcribe.ProviderGemini:
+			apiKey = os.Getenv("GEMINI_API_KEY")
+		case transcribe.ProviderOpenAI:
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
 	}
 	if apiKey == "" {
+		var envVar string
+		switch provider {
+		case transcribe.ProviderGemini:
+			envVar = "GEMINI_API_KEY"
+		case transcribe.ProviderOpenAI:
+			envVar = "OPENAI_API_KEY"
+		default:
+			envVar = "API_KEY"
+		}
 		return fmt.Errorf(
-			"Gemini API key is required: use --api-key flag or set GEMINI_API_KEY environment variable",
+			"API key is required: use --api-key flag or set %s environment variable",
+			envVar,
 		)
 	}
 
@@ -225,7 +278,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 
 	transcriber, err := transcribe.Factory(
 		ctx,
-		transcribe.ProviderGemini,
+		provider,
 		apiKey,
 		transcribeOpts,
 	)
@@ -233,20 +286,22 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create transcriber: %w", err)
 	}
 
-	geminiTranscriber, ok := transcriber.(*transcribe.GeminiTranscriber)
-	if !ok {
-		return fmt.Errorf("expected GeminiTranscriber")
-	}
-
 	logger.Infow("Transcribing audio",
+		"provider", providerStr,
+		"model", model,
 		"concurrency", concurrency,
 	)
 
-	result, err := geminiTranscriber.TranscribeWithChunks(
-		ctx,
-		chunks,
-		concurrency,
-	)
+	var result *transcribe.Result
+	if concurrentTranscriber, ok := transcriber.(transcribe.ConcurrentTranscriber); ok {
+		result, err = concurrentTranscriber.TranscribeWithChunks(
+			ctx,
+			chunks,
+			concurrency,
+		)
+	} else {
+		result, err = transcriber.Transcribe(ctx, audioPath)
+	}
 	if err != nil {
 		return fmt.Errorf("transcription failed: %w", err)
 	}
@@ -311,6 +366,14 @@ func isValidOpenAIModel(model string) bool {
 	return validOpenAIModels[model]
 }
 
+var validOpenAIAudioModels = map[string]bool{
+	"whisper-1": true,
+}
+
+func isValidOpenAIAudioModel(model string) bool {
+	return validOpenAIAudioModels[model]
+}
+
 var validAnthropicModels = map[string]bool{
 	"claude-haiku-4-5":  true,
 	"claude-sonnet-4-5": true,
@@ -319,4 +382,18 @@ var validAnthropicModels = map[string]bool{
 
 func isValidAnthropicModel(model string) bool {
 	return validAnthropicModels[model]
+}
+
+// isValidOpenAITranscriptLanguage checks if the transcript language is supported
+// by OpenAI Whisper. Whisper only supports translation TO English, so valid values
+// are: "native" (or empty) for original language transcription, or "english"/"en"
+// for translation to English.
+func isValidOpenAITranscriptLanguage(lang string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(lang))
+	switch normalized {
+	case "", "native", "english", "en":
+		return true
+	default:
+		return false
+	}
 }
