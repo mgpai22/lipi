@@ -82,16 +82,12 @@ func BuildPrompt(opts Options, items []TranslationItem) string {
 	var sb strings.Builder
 
 	if opts.InputLanguage != "" {
-		sb.WriteString(fmt.Sprintf(
-			"Translate the following %s subtitle texts to %s.\n\n",
+		fmt.Fprintf(&sb, "Translate the following %s subtitle texts to %s.\n\n",
 			opts.InputLanguage,
-			opts.TargetLanguage,
-		))
+			opts.TargetLanguage)
 	} else {
-		sb.WriteString(fmt.Sprintf(
-			"Translate the following subtitle texts to %s.\n\n",
-			opts.TargetLanguage,
-		))
+		fmt.Fprintf(&sb, "Translate the following subtitle texts to %s.\n\n",
+			opts.TargetLanguage)
 	}
 
 	sb.WriteString("IMPORTANT INSTRUCTIONS:\n")
@@ -99,20 +95,21 @@ func BuildPrompt(opts Options, items []TranslationItem) string {
 		"1. Translate ONLY the text content, preserving the meaning.\n",
 	)
 	sb.WriteString(
-		"2. Keep any formatting tags (like {\\pos}, {\\an}, etc.) unchanged.\n",
+		"2. Translations MUST make sense given the context of the original text rather than a literal translation.\n",
 	)
-	sb.WriteString("3. Preserve line breaks (\\N) in the same positions.\n")
-	sb.WriteString("4. Return ONLY a JSON array with the same structure.\n")
-	sb.WriteString("5. Each object must have 'index' and 'text' fields.\n")
 	sb.WriteString(
-		"6. The 'index' values must match the input indices exactly.\n",
+		"3. Keep any formatting tags (like {\\pos}, {\\an}, etc.) unchanged.\n",
 	)
-	sb.WriteString("7. Do not add any explanation or markdown formatting.\n\n")
+	sb.WriteString("4. Preserve line breaks (\\N) in the same positions.\n")
+	sb.WriteString("5. Return ONLY a JSON array with the same structure.\n")
+	sb.WriteString("6. Each object must have 'index' and 'text' fields.\n")
+	sb.WriteString(
+		"7. The 'index' values must match the input indices exactly.\n",
+	)
+	sb.WriteString("8. Do not add any explanation or markdown formatting.\n\n")
 
 	if opts.Prompt != "" {
-		sb.WriteString(
-			fmt.Sprintf("Additional instructions: %s\n\n", opts.Prompt),
-		)
+		fmt.Fprintf(&sb, "Additional instructions: %s\n\n", opts.Prompt)
 	}
 
 	sb.WriteString("Input JSON:\n")
