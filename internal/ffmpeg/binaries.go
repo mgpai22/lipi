@@ -79,7 +79,7 @@ func ensure() (BinaryPaths, error) {
 		return paths, nil
 	}
 
-	assetName, err := assetForPlatform(runtime.GOOS, runtime.GOARCH)
+	assetNames, err := assetsForPlatform(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		return BinaryPaths{}, err
 	}
@@ -108,9 +108,15 @@ func ensure() (BinaryPaths, error) {
 		return BinaryPaths{}, fmt.Errorf("create ffmpeg cache dir: %w", err)
 	}
 
-	embeddedUsed, err := extractEmbedded(assetName, installDir)
-	if err != nil {
-		return BinaryPaths{}, err
+	embeddedUsed := false
+	for _, assetName := range assetNames {
+		used, err := extractEmbedded(assetName, installDir)
+		if err != nil {
+			return BinaryPaths{}, err
+		}
+		if used {
+			embeddedUsed = true
+		}
 	}
 	if embeddedUsed {
 		if !binariesExist(ffmpegPath, ffprobePath) {
@@ -127,8 +133,10 @@ func ensure() (BinaryPaths, error) {
 		return BinaryPaths{FFmpeg: ffmpegPath, FFprobe: ffprobePath}, nil
 	}
 
-	if err := downloadAndExtract(assetName, installDir); err != nil {
-		return BinaryPaths{}, err
+	for _, assetName := range assetNames {
+		if err := downloadAndExtract(assetName, installDir); err != nil {
+			return BinaryPaths{}, err
+		}
 	}
 
 	if !binariesExist(ffmpegPath, ffprobePath) {
@@ -147,19 +155,24 @@ func ensure() (BinaryPaths, error) {
 	return BinaryPaths{FFmpeg: ffmpegPath, FFprobe: ffprobePath}, nil
 }
 
-func assetForPlatform(goos, goarch string) (string, error) {
+func assetsForPlatform(goos, goarch string) ([]string, error) {
+	var suffix string
 	switch {
 	case goos == "linux" && goarch == "amd64":
-		return "ffmpeg-" + ffmpegReleaseVersion + "-linux-64.zip", nil
+		suffix = "linux-64"
 	case goos == "linux" && goarch == "arm64":
-		return "ffmpeg-" + ffmpegReleaseVersion + "-linux-arm-64.zip", nil
+		suffix = "linux-arm-64"
 	case goos == "darwin" && goarch == "amd64":
-		return "ffmpeg-" + ffmpegReleaseVersion + "-macos-64.zip", nil
+		suffix = "macos-64"
 	case goos == "windows" && goarch == "amd64":
-		return "ffmpeg-" + ffmpegReleaseVersion + "-win-64.zip", nil
+		suffix = "win-64"
 	default:
-		return "", fmt.Errorf("unsupported platform for bundled ffmpeg: %s/%s", goos, goarch)
+		return nil, fmt.Errorf("unsupported platform for bundled ffmpeg: %s/%s", goos, goarch)
 	}
+	return []string{
+		"ffmpeg-" + ffmpegReleaseVersion + "-" + suffix + ".zip",
+		"ffprobe-" + ffmpegReleaseVersion + "-" + suffix + ".zip",
+	}, nil
 }
 
 func downloadAndExtract(assetName, installDir string) error {
@@ -224,8 +237,6 @@ func extractArchive(archivePath, installDir string) error {
 	}
 	defer func() { _ = zipReader.Close() }()
 
-	ffmpegFound := false
-	ffprobeFound := false
 	for _, file := range zipReader.File {
 		name := filepath.Base(file.Name)
 		if isFFmpegBinary(name) {
@@ -233,7 +244,6 @@ func extractArchive(archivePath, installDir string) error {
 			if err := extractZipFile(file, dest); err != nil {
 				return err
 			}
-			ffmpegFound = true
 			continue
 		}
 		if isFFprobeBinary(name) {
@@ -241,12 +251,7 @@ func extractArchive(archivePath, installDir string) error {
 			if err := extractZipFile(file, dest); err != nil {
 				return err
 			}
-			ffprobeFound = true
 		}
-	}
-
-	if !ffmpegFound || !ffprobeFound {
-		return fmt.Errorf("ffmpeg archive missing required binaries")
 	}
 
 	return nil

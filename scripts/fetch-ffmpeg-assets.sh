@@ -8,9 +8,13 @@ BASE_URL="https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download"
 
 ASSETS=(
   "ffmpeg-${VERSION}-linux-64.zip"
+  "ffprobe-${VERSION}-linux-64.zip"
   "ffmpeg-${VERSION}-linux-arm-64.zip"
+  "ffprobe-${VERSION}-linux-arm-64.zip"
   "ffmpeg-${VERSION}-macos-64.zip"
+  "ffprobe-${VERSION}-macos-64.zip"
   "ffmpeg-${VERSION}-win-64.zip"
+  "ffprobe-${VERSION}-win-64.zip"
 )
 
 mkdir -p "$ASSET_DIR"
