@@ -72,6 +72,30 @@ func TestOpenAITranslatorImplementsConcurrentTranslator(t *testing.T) {
 	}
 }
 
+func TestFactoryReturnsAnthropicTranslator(t *testing.T) {
+	ctx := context.Background()
+	opts := Options{TargetLanguage: "French"}
+	translator, err := Factory(ctx, ProviderAnthropic, "fake-key", opts)
+	if err != nil {
+		t.Fatalf("Factory(ProviderAnthropic) returned error: %v", err)
+	}
+	if _, ok := translator.(*AnthropicTranslator); !ok {
+		t.Errorf("expected *AnthropicTranslator, got %T", translator)
+	}
+}
+
+func TestAnthropicTranslatorImplementsConcurrentTranslator(t *testing.T) {
+	ctx := context.Background()
+	opts := Options{TargetLanguage: "Italian"}
+	translator, err := Factory(ctx, ProviderAnthropic, "fake-key", opts)
+	if err != nil {
+		t.Fatalf("Factory error: %v", err)
+	}
+	if _, ok := translator.(ConcurrentTranslator); !ok {
+		t.Error("AnthropicTranslator should implement ConcurrentTranslator")
+	}
+}
+
 // Integration test: only runs if OPENAI_API_KEY is set
 func TestOpenAITranslatorIntegration(t *testing.T) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
@@ -84,6 +108,39 @@ func TestOpenAITranslatorIntegration(t *testing.T) {
 	translator, err := NewOpenAITranslator(ctx, apiKey, opts)
 	if err != nil {
 		t.Fatalf("NewOpenAITranslator error: %v", err)
+	}
+
+	items := []TranslationItem{
+		{Index: 0, Text: "Hello"},
+		{Index: 1, Text: "Goodbye"},
+	}
+
+	results, err := translator.Translate(ctx, items)
+	if err != nil {
+		t.Fatalf("Translate error: %v", err)
+	}
+	if len(results) != 2 {
+		t.Errorf("expected 2 results, got %d", len(results))
+	}
+	for _, r := range results {
+		if r.Text == "" {
+			t.Errorf("result index %d has empty text", r.Index)
+		}
+	}
+}
+
+// Integration test: only runs if ANTHROPIC_API_KEY is set
+func TestAnthropicTranslatorIntegration(t *testing.T) {
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	if apiKey == "" {
+		t.Skip("ANTHROPIC_API_KEY not set; skipping integration test")
+	}
+
+	ctx := context.Background()
+	opts := Options{TargetLanguage: "Japanese"}
+	translator, err := NewAnthropicTranslator(ctx, apiKey, opts)
+	if err != nil {
+		t.Fatalf("NewAnthropicTranslator error: %v", err)
 	}
 
 	items := []TranslationItem{

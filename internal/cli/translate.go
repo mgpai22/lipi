@@ -39,13 +39,13 @@ func init() {
 	translateCmd.Flags().
 		Bool("overlay", false, "Overlay translated text with original (bilingual subtitles)")
 	translateCmd.Flags().
-		StringP("api-key", "k", "", "API key (or set GEMINI_API_KEY/OPENAI_API_KEY env var)")
+		StringP("api-key", "k", "", "API key (or set GEMINI_API_KEY/OPENAI_API_KEY/ANTHROPIC_API_KEY env var)")
 	translateCmd.Flags().
 		String("model", "", "Model to use for translation (provider-specific, uses sensible defaults)")
 	translateCmd.Flags().
 		Bool("model-override", false, "Allow any custom model, bypassing provider model validation")
 	translateCmd.Flags().
-		String("provider", "gemini", "Translation provider (gemini, openai)")
+		String("provider", "gemini", "Translation provider (gemini, openai, anthropic)")
 	translateCmd.Flags().
 		Int("concurrency", 3, "Number of parallel translation workers")
 	translateCmd.Flags().
@@ -105,6 +105,8 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 			apiKey = os.Getenv("GEMINI_API_KEY")
 		case translate.ProviderOpenAI:
 			apiKey = os.Getenv("OPENAI_API_KEY")
+		case translate.ProviderAnthropic:
+			apiKey = os.Getenv("ANTHROPIC_API_KEY")
 		}
 	}
 	if apiKey == "" {
@@ -114,6 +116,8 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 			envVar = "GEMINI_API_KEY"
 		case translate.ProviderOpenAI:
 			envVar = "OPENAI_API_KEY"
+		case translate.ProviderAnthropic:
+			envVar = "ANTHROPIC_API_KEY"
 		default:
 			envVar = "API_KEY"
 		}
@@ -136,6 +140,13 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 			if !isValidOpenAIModel(model) {
 				return fmt.Errorf(
 					"unsupported OpenAI model %q: valid models are o1, o3-mini, o1-pro, o3, gpt-5, gpt-5-nano, gpt-5-mini, gpt-5-pro, gpt-5.1, gpt-5.2, gpt-5.2-pro (use --model-override to bypass)",
+					model,
+				)
+			}
+		case translate.ProviderAnthropic:
+			if !isValidAnthropicModel(model) {
+				return fmt.Errorf(
+					"unsupported Anthropic model %q: valid models are claude-haiku-4-5, claude-sonnet-4-5, claude-opus-4-5 (use --model-override to bypass)",
 					model,
 				)
 			}

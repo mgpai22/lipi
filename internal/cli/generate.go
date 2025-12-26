@@ -310,3 +310,13 @@ var validOpenAIModels = map[string]bool{
 func isValidOpenAIModel(model string) bool {
 	return validOpenAIModels[model]
 }
+
+var validAnthropicModels = map[string]bool{
+	"claude-haiku-4-5":  true,
+	"claude-sonnet-4-5": true,
+	"claude-opus-4-5":   true,
+}
+
+func isValidAnthropicModel(model string) bool {
+	return validAnthropicModels[model]
+}

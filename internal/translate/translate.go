@@ -39,8 +39,9 @@ type ConcurrentTranslator interface {
 type Provider string
 
 const (
-	ProviderGemini Provider = "gemini"
-	ProviderOpenAI Provider = "openai"
+	ProviderGemini    Provider = "gemini"
+	ProviderOpenAI    Provider = "openai"
+	ProviderAnthropic Provider = "anthropic"
 )
 
 type Options struct {
@@ -67,6 +68,8 @@ func Factory(
 		return NewGeminiTranslator(ctx, apiKey, opts)
 	case ProviderOpenAI:
 		return NewOpenAITranslator(ctx, apiKey, opts)
+	case ProviderAnthropic:
+		return NewAnthropicTranslator(ctx, apiKey, opts)
 	default:
 		return nil, fmt.Errorf("unsupported translation provider: %s", provider)
 	}
