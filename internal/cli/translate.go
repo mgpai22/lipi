@@ -39,11 +39,13 @@ func init() {
 	translateCmd.Flags().
 		Bool("overlay", false, "Overlay translated text with original (bilingual subtitles)")
 	translateCmd.Flags().
-		StringP("api-key", "k", "", "Gemini API key (or set GEMINI_API_KEY env var)")
+		StringP("api-key", "k", "", "API key (or set GEMINI_API_KEY/OPENAI_API_KEY env var)")
 	translateCmd.Flags().
-		String("model", "gemini-2.5-flash", "Gemini model to use for translation")
+		String("model", "", "Model to use for translation (provider-specific, uses sensible defaults)")
 	translateCmd.Flags().
-		String("provider", "gemini", "Translation provider (currently only gemini)")
+		Bool("model-override", false, "Allow any custom model, bypassing provider model validation")
+	translateCmd.Flags().
+		String("provider", "gemini", "Translation provider (gemini, openai)")
 	translateCmd.Flags().
 		Int("concurrency", 3, "Number of parallel translation workers")
 	translateCmd.Flags().
@@ -60,6 +62,7 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 	overlay, _ := cmd.Flags().GetBool("overlay")
 	apiKey, _ := cmd.Flags().GetString("api-key")
 	model, _ := cmd.Flags().GetString("model")
+	modelOverride, _ := cmd.Flags().GetBool("model-override")
 	providerStr, _ := cmd.Flags().GetString("provider")
 	concurrency, _ := cmd.Flags().GetInt("concurrency")
 	batchSize, _ := cmd.Flags().GetInt("batch-size")
@@ -94,20 +97,49 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 		)
 	}
 
+	provider := translate.Provider(providerStr)
+
 	if apiKey == "" {
-		apiKey = os.Getenv("GEMINI_API_KEY")
+		switch provider {
+		case translate.ProviderGemini:
+			apiKey = os.Getenv("GEMINI_API_KEY")
+		case translate.ProviderOpenAI:
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
 	}
 	if apiKey == "" {
+		var envVar string
+		switch provider {
+		case translate.ProviderGemini:
+			envVar = "GEMINI_API_KEY"
+		case translate.ProviderOpenAI:
+			envVar = "OPENAI_API_KEY"
+		default:
+			envVar = "API_KEY"
+		}
 		return fmt.Errorf(
-			"Gemini API key is required: use --api-key flag or set GEMINI_API_KEY environment variable",
+			"API key is required: use --api-key flag or set %s environment variable",
+			envVar,
 		)
 	}
 
-	if !isValidGeminiModel(model) {
-		return fmt.Errorf(
-			"unsupported model %q: valid models are gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-native-audio-latest, gemini-2.5-flash-lite",
-			model,
-		)
+	if model != "" && !modelOverride {
+		switch provider {
+		case translate.ProviderGemini:
+			if !isValidGeminiModel(model) {
+				return fmt.Errorf(
+					"unsupported Gemini model %q: valid models are gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite (use --model-override to bypass)",
+					model,
+				)
+			}
+		case translate.ProviderOpenAI:
+			if !isValidOpenAIModel(model) {
+				return fmt.Errorf(
+					"unsupported OpenAI model %q: valid models are o1, o3-mini, o1-pro, o3, gpt-5, gpt-5-nano, gpt-5-mini, gpt-5-pro, gpt-5.1, gpt-5.2, gpt-5.2-pro (use --model-override to bypass)",
+					model,
+				)
+			}
+		}
 	}
 
 	if concurrency <= 0 {
@@ -156,7 +188,6 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 		"format", subFile.Format(),
 	)
 
-	provider := translate.Provider(providerStr)
 	opts := translate.Options{
 		InputLanguage:  inputLang,
 		TargetLanguage: targetLang,
@@ -182,10 +213,9 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 		"concurrency", concurrency,
 	)
 
-	geminiTranslator, ok := translator.(*translate.GeminiTranslator)
 	var results []translate.TranslationResult
-	if ok {
-		results, err = geminiTranslator.TranslateWithConcurrency(
+	if concurrentTranslator, ok := translator.(translate.ConcurrentTranslator); ok {
+		results, err = concurrentTranslator.TranslateWithConcurrency(
 			ctx,
 			items,
 			concurrency,
