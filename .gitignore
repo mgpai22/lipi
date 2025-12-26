@@ -38,6 +38,9 @@ Thumbs.db
 /tmp/
 *.tmp
 
+# Bundled ffmpeg assets
+/internal/ffmpeg/assets/*.zip
+
 # Environment files (may contain secrets)
 .env
 .env.local

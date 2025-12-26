@@ -12,6 +12,8 @@ import (
 	"time"
 
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+
+	ffmpegbin "github.com/mgpai22/lipi/internal/ffmpeg"
 )
 
 // audio chunk info
@@ -53,7 +55,12 @@ func GetDuration(filePath string) (time.Duration, error) {
 		return 0, fmt.Errorf("file not found: %s", filePath)
 	}
 
-	cmd := exec.Command("ffprobe",
+	ffprobePath, err := ffmpegbin.FFprobePath()
+	if err != nil {
+		return 0, err
+	}
+
+	cmd := exec.Command(ffprobePath,
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_format",
@@ -120,9 +127,15 @@ func CompressAudio(
 		}
 	}
 
-	err := ffmpeg.Input(inputPath).
+	ffmpegPath, err := ffmpegbin.FFmpegPath()
+	if err != nil {
+		return err
+	}
+
+	err = ffmpeg.Input(inputPath).
 		Output(outputPath, kwargs).
 		OverWriteOutput().
+		SetFfmpegPath(ffmpegPath).
 		Run()
 
 	if err != nil {
@@ -166,6 +179,11 @@ func ChunkAudio(
 	)
 	ext := filepath.Ext(audioPath)
 
+	ffmpegPath, err := ffmpegbin.FFmpegPath()
+	if err != nil {
+		return nil, err
+	}
+
 	chunkSeconds := chunkDuration.Seconds()
 	totalSeconds := totalDuration.Seconds()
 
@@ -192,9 +210,10 @@ func ChunkAudio(
 			"c":  "copy", // Copy codec for speed
 		}
 
-		err := ffmpeg.Input(audioPath).
+		err = ffmpeg.Input(audioPath).
 			Output(chunkPath, kwargs).
 			OverWriteOutput().
+			SetFfmpegPath(ffmpegPath).
 			Run()
 
 		if err != nil {
