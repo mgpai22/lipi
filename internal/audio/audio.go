@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	ffmpeg "github.com/u2takey/ffmpeg-go"
@@ -145,6 +147,14 @@ func CompressAudio(
 	return nil
 }
 
+// chunkJob represents a single chunk to be created
+type chunkJob struct {
+	index        int
+	startSeconds float64
+	endSeconds   float64
+	chunkPath    string
+}
+
 // splits an audio file into chunks of specified duration
 func ChunkAudio(
 	ctx context.Context,
@@ -152,11 +162,27 @@ func ChunkAudio(
 	chunkDuration time.Duration,
 	outputDir string,
 ) ([]ChunkInfo, error) {
+	return ChunkAudioConcurrent(ctx, audioPath, chunkDuration, outputDir, 0)
+}
+
+// ChunkAudioConcurrent splits an audio file into chunks with configurable concurrency.
+// If concurrency is 0 or negative, it defaults to 10 concurrent workers.
+func ChunkAudioConcurrent(
+	ctx context.Context,
+	audioPath string,
+	chunkDuration time.Duration,
+	outputDir string,
+	concurrency int,
+) ([]ChunkInfo, error) {
 	if chunkDuration <= 0 {
 		return nil, fmt.Errorf(
 			"chunk duration must be positive, got %v",
 			chunkDuration,
 		)
+	}
+
+	if concurrency <= 0 {
+		concurrency = 10
 	}
 
 	if _, err := os.Stat(audioPath); os.IsNotExist(err) {
@@ -172,7 +198,6 @@ func ChunkAudio(
 		return nil, fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	var chunks []ChunkInfo
 	baseName := strings.TrimSuffix(
 		filepath.Base(audioPath),
 		filepath.Ext(audioPath),
@@ -187,6 +212,7 @@ func ChunkAudio(
 	chunkSeconds := chunkDuration.Seconds()
 	totalSeconds := totalDuration.Seconds()
 
+	var jobs []chunkJob
 	for i := 0; ; i++ {
 		startSeconds := float64(i) * chunkSeconds
 		if startSeconds >= totalSeconds {
@@ -203,30 +229,104 @@ func ChunkAudio(
 			fmt.Sprintf("%s_chunk_%03d%s", baseName, i, ext),
 		)
 
-		kwargs := ffmpeg.KwArgs{
-			"ss": startSeconds,
-			"t":  endSeconds - startSeconds,
-			"y":  "",
-			"c":  "copy", // Copy codec for speed
-		}
-
-		err = ffmpeg.Input(audioPath).
-			Output(chunkPath, kwargs).
-			OverWriteOutput().
-			SetFfmpegPath(ffmpegPath).
-			Run()
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to create chunk %d: %w", i, err)
-		}
-
-		chunks = append(chunks, ChunkInfo{
-			Path:      chunkPath,
-			Index:     i,
-			StartTime: time.Duration(startSeconds * float64(time.Second)),
-			EndTime:   time.Duration(endSeconds * float64(time.Second)),
+		jobs = append(jobs, chunkJob{
+			index:        i,
+			startSeconds: startSeconds,
+			endSeconds:   endSeconds,
+			chunkPath:    chunkPath,
 		})
 	}
+
+	var (
+		mu       sync.Mutex
+		chunks   []ChunkInfo
+		firstErr error
+		wg       sync.WaitGroup
+	)
+
+	// Create a semaphore to limit concurrency
+	sem := make(chan struct{}, concurrency)
+
+	for _, job := range jobs {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		mu.Lock()
+		hasErr := firstErr != nil
+		mu.Unlock()
+		if hasErr {
+			break
+		}
+
+		wg.Add(1)
+		go func(j chunkJob) {
+			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			mu.Lock()
+			hasErr := firstErr != nil
+			mu.Unlock()
+			if hasErr {
+				return
+			}
+
+			kwargs := ffmpeg.KwArgs{
+				"ss": j.startSeconds,
+				"t":  j.endSeconds - j.startSeconds,
+				"y":  "",
+				"c":  "copy", // Copy codec for speed
+			}
+
+			err := ffmpeg.Input(audioPath).
+				Output(j.chunkPath, kwargs).
+				OverWriteOutput().
+				SetFfmpegPath(ffmpegPath).
+				Run()
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			if err != nil {
+				if firstErr == nil {
+					firstErr = fmt.Errorf(
+						"failed to create chunk %d: %w",
+						j.index,
+						err,
+					)
+				}
+				return
+			}
+
+			chunks = append(chunks, ChunkInfo{
+				Path:      j.chunkPath,
+				Index:     j.index,
+				StartTime: time.Duration(j.startSeconds * float64(time.Second)),
+				EndTime:   time.Duration(j.endSeconds * float64(time.Second)),
+			})
+		}(job)
+	}
+
+	wg.Wait()
+
+	if firstErr != nil {
+		return nil, firstErr
+	}
+
+	// sort chunks by index to maintain order
+	sort.Slice(chunks, func(i, j int) bool {
+		return chunks[i].Index < chunks[j].Index
+	})
 
 	return chunks, nil
 }
