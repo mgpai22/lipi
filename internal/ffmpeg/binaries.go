@@ -172,7 +172,7 @@ func downloadAndExtract(assetName, installDir string) error {
 	if resp == nil {
 		return errors.New("download ffmpeg bundle: nil response")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download ffmpeg bundle: unexpected status %s", resp.Status)
@@ -186,7 +186,7 @@ func extractEmbedded(assetName, installDir string) (bool, error) {
 	if err != nil || !ok {
 		return ok, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	if err := extractArchiveFromReader(assetName, reader, installDir); err != nil {
 		return true, err
@@ -209,7 +209,7 @@ func extractArchiveFromReader(assetName string, reader io.Reader, installDir str
 		_ = os.Remove(archivePath)
 		return fmt.Errorf("close archive: %w", err)
 	}
-	defer os.Remove(archivePath)
+	defer func() { _ = os.Remove(archivePath) }()
 
 	if err := extractArchive(archivePath, installDir); err != nil {
 		return fmt.Errorf("extract %s: %w", assetName, err)
@@ -222,7 +222,7 @@ func extractArchive(archivePath, installDir string) error {
 	if err != nil {
 		return fmt.Errorf("open ffmpeg archive: %w", err)
 	}
-	defer zipReader.Close()
+	defer func() { _ = zipReader.Close() }()
 
 	ffmpegFound := false
 	ffprobeFound := false
@@ -257,7 +257,7 @@ func extractZipFile(file *zip.File, dest string) error {
 	if err != nil {
 		return fmt.Errorf("open ffmpeg archive entry: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return fmt.Errorf("create ffmpeg output dir: %w", err)
@@ -267,7 +267,7 @@ func extractZipFile(file *zip.File, dest string) error {
 	if err != nil {
 		return fmt.Errorf("create ffmpeg binary: %w", err)
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	if _, err := io.Copy(out, reader); err != nil {
 		return fmt.Errorf("write ffmpeg binary: %w", err)
